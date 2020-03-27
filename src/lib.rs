@@ -2,19 +2,19 @@
 use std::convert::TryInto;
 
 #[derive(Debug, Clone, PartialEq)]
-struct Edge {
+pub struct Edge {
     src: usize,
     dst: usize,
 }
 
 #[derive(Debug, Clone)]
-struct Graph {
+pub struct Graph {
     number_of_vertices: usize,
     edge_list: Vec<Edge>
 }
 
 impl Graph {
-    fn new(number_of_vertices: usize, edge_list: Vec<Edge>) -> Self {
+    pub fn new(number_of_vertices: usize, edge_list: Vec<Edge>) -> Self {
         Graph {
             number_of_vertices,
             edge_list
@@ -33,7 +33,7 @@ impl Graph {
 }
 
 impl Edge {
-    fn new(src: usize, dst: usize) -> Self {
+    pub fn new(src: usize, dst: usize) -> Self {
         Edge { src, dst }
     }
 }
@@ -106,9 +106,10 @@ impl ZDDNodeTrait for ZDDNode {
 
         let self_deg = self.deg.as_ref().unwrap().borrow();
         let self_comp = self.comp.as_ref().unwrap().borrow();
-        for i in 1..=number_of_vertices {
-            deg.push(self_deg[i as usize]);
-            comp.push(self_comp[i as usize]);
+        // for i in 1..=number_of_vertices {
+        for i in 1..number_of_vertices {
+            deg.push(self_deg[i]);
+            comp.push(self_comp[i]);
         }
         ZDDNode {
             deg: Some(std::cell::RefCell::new(deg)),
@@ -128,9 +129,9 @@ impl ZDDNodeTrait for ZDDNode {
     }
     fn get_child(&self, child_num: i64) -> std::rc::Rc<Self> {
         if child_num == 0 {
-            (&self.zero_child).as_ref().unwrap().clone()
+            self.zero_child.as_ref().unwrap().clone()
         } else {
-            (&self.one_child).as_ref().unwrap().clone()
+            self.one_child.as_ref().unwrap().clone()
         }
     }
 }
@@ -143,7 +144,7 @@ pub struct State {
 }
 
 impl State {
-    fn new(graph: Graph, start: usize,  end: usize) -> Self {
+    pub fn new(graph: Graph, start: usize, end: usize) -> Self {
         let graph = std::rc::Rc::new(graph);
         State {
             s: start,
@@ -194,26 +195,30 @@ impl State {
     }
 }
 
+#[derive(Debug)]
 pub struct ZDD {
     node_list_array: Vec<Vec<ZDDNode>>,
 }
 
 impl ZDD {
-    fn get_number_of_nodes(&self) -> usize {
+    pub fn get_number_of_nodes(&self) -> usize {
         let mut num = 0;
         for i in 1..self.node_list_array.len() {
             num += self.node_list_array[i].len()
         }
         num + 2
     }
-    fn get_number_of_solutions(&mut self) -> i64 {
-        let mut i = self.node_list_array.len();
-        while i > 1 {
+    pub fn get_number_of_solutions(&mut self) -> i64 {
+        let mut i = self.node_list_array.len() - 1;
+        println!("{:?}", self.node_list_array);
+        while i >= 0 {
             for j in 0..self.node_list_array[i].len() {
+                println!("j={}, {:?}", j, self.node_list_array[i][j]);
                 let lo_node = self.node_list_array[i][j].get_child(0);
                 let hi_node = self.node_list_array[i][j].get_child(1);
                 self.node_list_array[i][j].sol = lo_node.sol + hi_node.sol;
             }
+            i -= 1;
         }
         self.node_list_array[1][0].sol
     }
@@ -333,10 +338,10 @@ pub mod FrontierAlgorithm {
     }
     fn is_equivalent(node1: &ZDDNode, node2: &ZDDNode, i: usize, state: &State) -> bool {
         let frontier = &state.frontier[i];
-        let mut n1_deg = node1.deg.as_ref().unwrap().borrow();
-        let mut n1_comp = node1.comp.as_ref().unwrap().borrow();
-        let mut n2_deg = node2.deg.as_ref().unwrap().borrow();
-        let mut n2_comp = node2.comp.as_ref().unwrap().borrow();
+        let n1_deg = node1.deg.as_ref().unwrap().borrow();
+        let n1_comp = node1.comp.as_ref().unwrap().borrow();
+        let n2_deg = node2.deg.as_ref().unwrap().borrow();
+        let n2_comp = node2.comp.as_ref().unwrap().borrow();
 
         for j in 0..frontier.len() {
             let v = frontier[j];
@@ -355,73 +360,77 @@ pub mod FrontierAlgorithm {
 #[cfg(test)]
 mod tests {
     use super::*;
+    fn zdd_create_root_node_fixtures(size: usize) -> (std::cell::RefCell<Vec<usize>>,
+                                                      std::cell::RefCell<Vec<usize>>) {
+        let comp = std::cell::RefCell::new((1..=size).collect());
+        let deg = std::cell::RefCell::new(vec![0; size]);
+        (comp, deg)
+    }
+    #[test]
+    fn zddnode_create_root_node() {
+        for i in 0..10 {
+            let z = ZDDNode::create_root_node(i);
+            let (expected_comp, expected_deg) = zdd_create_root_node_fixtures(i);
+            assert_eq!(z.comp.unwrap(), expected_comp);
+            assert_eq!(z.deg.unwrap(), expected_deg);
+        }
+        for i in 10000..10010 {
+            let z = ZDDNode::create_root_node(i);
+            let (expected_comp, expected_deg) = zdd_create_root_node_fixtures(i);
+            assert_eq!(z.comp.unwrap(), expected_comp);
+            assert_eq!(z.deg.unwrap(), expected_deg);
+        }
+        for i in 1000000..1000010 {
+            let z = ZDDNode::create_root_node(i);
+            let (expected_comp, expected_deg) = zdd_create_root_node_fixtures(i);
+            assert_eq!(z.comp.unwrap(), expected_comp);
+            assert_eq!(z.deg.unwrap(), expected_deg);
+        }
+    }
 
-    // #[test]
-    // fn test_zdd_create_root_node_3() {
-    //     let z = ZDDNode::create_root_node(3);
-    //     assert_eq!(z.comp.unwrap(), vec![1, 2, 3]);
-    //     assert_eq!(z.deg.unwrap(), vec![0, 0, 0]);
-    // }
-    // #[test]
-    // fn test_zdd_create_root_node_1() {
-    //     let z = ZDDNode::create_root_node(1);
-    //     assert_eq!(z.comp.unwrap(), vec![1]);
-    //     assert_eq!(z.deg.unwrap(), vec![0]);
-    // }
-    // #[test]
-    // fn test_zdd_create_root_node_2() {
-    //     let z = ZDDNode::create_root_node(2);
-    //     assert_eq!(z.comp.unwrap(), vec![1, 2]);
-    //     assert_eq!(z.deg.unwrap(), vec![0, 0]);
-    // }
-    // #[test]
-    // fn test_zdd_create_root_node_edge_case() {
-    //     let z = ZDDNode::create_root_node(0);
-    //     assert_eq!(z.comp.unwrap(), vec![]);
-    //     assert_eq!(z.deg.unwrap(), vec![]);
-    // }
 
-    // #[test]
-    // fn graph_get_number_of_vertices() {
-    //     let e1 = Edge::new(0, 1);
-    //     let e2 = Edge::new(0, 2);
-    //     let e3 = Edge::new(1, 3);
-    //     let e4 = Edge::new(2, 3);
-    //     let edge_list = vec![e1, e2, e3, e4];
-    //     let g = Graph::new(4, edge_list.clone());
-    //     assert_eq!(g.get_number_of_vertices(), 4);
-    //     assert_eq!(g.get_edge_list(), &edge_list);
-    // }
-    // #[test]
-    // fn zdd_get_child() {
-    //     let z1: ZDDNode = ZDDNode {
-    //         deg: None,
-    //         comp: None,
-    //         sol: 0,
-    //         zero_child: None,
-    //         one_child: None,
-    //         id: 0,
-    //     };
-    //     let z2: ZDDNode = ZDDNode {
-    //         deg: None,
-    //         comp: None,
-    //         sol: 0,
-    //         zero_child: None,
-    //         one_child: None,
-    //         id: 1,
-    //     };
-    //     let z3: ZDDNode = ZDDNode {
-    //         deg: None,
-    //         comp: None,
-    //         sol: 0,
-    //         zero_child: Some(std::rc::Rc::new(z1)),
-    //         one_child: Some(std::rc::Rc::new(z2)),
-    //         id: 2,
-    //     };
-    //     let zero = (&z3).get_child(0);
-    //     assert_eq!(zero.id, 0);
-    //     assert_eq!(zero.sol, 0);
-    //     assert_eq!(zero.id, 0);
-    //     assert_eq!(zero.sol, 0);
-    // }
+    #[test]
+    fn graph_get_number_of_vertices() {
+        let e1 = Edge::new(0, 1);
+        let e2 = Edge::new(0, 2);
+        let e3 = Edge::new(1, 3);
+        let e4 = Edge::new(2, 3);
+        let edge_list = vec![e1, e2, e3, e4];
+        let g = Graph::new(4, edge_list.clone());
+        assert_eq!(g.get_number_of_vertices(), 4);
+        assert_eq!(g.get_edge_list(), &edge_list);
+    }
+
+    #[test]
+    fn zddnode_get_child() {
+        let z1: ZDDNode = ZDDNode {
+            deg: None,
+            comp: None,
+            sol: 0,
+            zero_child: None,
+            one_child: None,
+            id: 0,
+        };
+        let z2: ZDDNode = ZDDNode {
+            deg: None,
+            comp: None,
+            sol: 0,
+            zero_child: None,
+            one_child: None,
+            id: 1,
+        };
+        let z3: ZDDNode = ZDDNode {
+            deg: None,
+            comp: None,
+            sol: 0,
+            zero_child: Some(std::rc::Rc::new(z1)),
+            one_child: Some(std::rc::Rc::new(z2)),
+            id: 2,
+        };
+        let zero = (&z3).get_child(0);
+        assert_eq!(zero.id, 0);
+        assert_eq!(zero.sol, 0);
+        assert_eq!(zero.id, 0);
+        assert_eq!(zero.sol, 0);
+    }
 }
