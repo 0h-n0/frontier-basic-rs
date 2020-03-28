@@ -39,6 +39,11 @@ impl Edge {
 }
 
 #[derive(Debug, Default, Clone)]
+struct TotalId {
+    id: std::cell::RefCell<i64>
+}
+
+#[derive(Debug, Default, Clone)]
 struct ZDDNode {
     deg: Option<std::cell::RefCell<Vec<usize>>>,
     comp: Option<std::cell::RefCell<Vec<usize>>>,
@@ -46,6 +51,7 @@ struct ZDDNode {
     zero_child: Option<std::rc::Rc<ZDDNode>>,
     one_child: Option<std::rc::Rc<ZDDNode>>,
     id: i64,
+    total_id: Option<TotalId>,
 }
 
 trait ZDDNodeTrait {
@@ -76,14 +82,17 @@ trait ZDDNodeTrait {
 
 impl ZDDNodeTrait for ZDDNode {
     fn set_next_id() -> i64 {
+        println!("ZDDNode::total_id= {:?}", ZDDNode::total_id);
         let id = ZDDNode::total_id.into_inner();
-        ZDDNode::total_id.replace(id + 1);
+        println!("id = {:?}", id + 1);
+        ZDDNode::total_id.replace(30);
+        *ZDDNode::total_id.borrow_mut() += 30;
+        println!("ZDDNode::total_id= {:?}", ZDDNode::total_id);
         return id
     }
     fn create_root_node(number_of_vertices: usize) -> Self {
         let mut deg = vec![];
         let mut comp = vec![];
-
         for i in 1..=number_of_vertices {
             deg.push(0);
             comp.push(i);
@@ -399,6 +408,24 @@ mod tests {
         let g = Graph::new(4, edge_list.clone());
         assert_eq!(g.get_number_of_vertices(), 4);
         assert_eq!(g.get_edge_list(), &edge_list);
+    }
+    #[test]
+    fn zddnode_get_id() {
+        let z1: ZDDNode = ZDDNode {
+            deg: None,
+            comp: None,
+            sol: 0,
+            zero_child: None,
+            one_child: None,
+            id: 0,
+        };
+        assert_eq!(z1.get_id(), 0);
+    }
+    #[test]
+    fn zddnode_set_next_id() {
+        ZDDNode::total_id.replace(4);
+        assert_eq!(ZDDNode::set_next_id(), 2);
+        assert_eq!(ZDDNode::set_next_id(), 0);
     }
 
     #[test]
