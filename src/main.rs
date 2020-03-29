@@ -1,4 +1,4 @@
-use frontier_basic_rs::{Graph, Edge, State, FrontierAlgorithm};
+use frontier_basic_rs::{Graph, Edge, State, Frontier};
 
 fn main() {
     let number_of_vertices = 4;
@@ -8,9 +8,9 @@ fn main() {
                          Edge::new(2, 3)];
 
     let g = Graph::new(number_of_vertices, edge_list);
-    println!("Hello, world!{:?}", &g);
     let state = State::new(g, 0, 3);
-    let mut zdd = FrontierAlgorithm::construct(&state);
+    let frontier = Frontier::new();
+    let mut zdd = frontier.construct(&state);
     println!("zdd number of nodes: {:?}", &zdd.get_number_of_nodes());
     println!("zdd number of solutions: {:?}", zdd.get_number_of_solutions());
     //println!("{:?}", zdd);
