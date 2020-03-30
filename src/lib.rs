@@ -43,7 +43,7 @@ struct TotalId {
     id: std::cell::RefCell<i64>
 }
 
-#[derive(Debug, Default, Clone)]
+#[derive(Default, Clone)]
 struct ZDDNode {
     deg: Option<std::cell::RefCell<Vec<usize>>>,
     comp: Option<std::cell::RefCell<Vec<usize>>>,
@@ -54,28 +54,40 @@ struct ZDDNode {
 }
 
 trait ZDDNodeTrait {
-    const ZERO_T: ZDDNode = ZDDNode {
-            deg: None,
-            comp: None,
-            sol: 0,
-            zero_child: None,
-            one_child: None,
-            id: 0,
-    };
-    const ONE_T: ZDDNode = ZDDNode {
-            deg: None,
-            comp: None,
-            sol: 1,
-            zero_child: None,
-            one_child: None,
-            id: 1,
-    };
     fn create_root_node(number_of_vertices: usize, id: usize) -> Self;
     fn get_id(&self) -> usize;
     fn set_next_id(&mut self, id: usize);
     fn make_copy(&self, number_of_vertices: usize, id: usize) -> Self;
     fn set_child(&mut self, node: Self, child_num: usize);
     fn get_child(&self, child_num: i64) -> std::rc::Rc<Self>;
+}
+
+impl std::fmt::Display for ZDDNode {
+    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+        let z_id = match self.zero_child.as_ref() {
+            Some(v) => v.clone().id,
+            None => 10000,
+        };
+        let o_id = match self.one_child.as_ref() {
+            Some(v) => v.clone().id,
+            None => 10000,
+        };
+        write!(f, "{}:({}, {})", self.id, z_id, o_id)
+    }
+}
+
+impl std::fmt::Debug for ZDDNode {
+    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+        let z_id = match self.zero_child.as_ref() {
+            Some(v) => v.clone().id,
+            None => 10000,
+        };
+        let o_id = match self.one_child.as_ref() {
+            Some(v) => v.clone().id,
+            None => 10000,
+        };
+        write!(f, "{}:(z: {}, o: {})", self.id, z_id, o_id)
+    }
 }
 
 impl ZDDNodeTrait for ZDDNode {
@@ -106,8 +118,7 @@ impl ZDDNodeTrait for ZDDNode {
 
         let self_deg = self.deg.as_ref().unwrap().borrow();
         let self_comp = self.comp.as_ref().unwrap().borrow();
-        // for i in 1..=number_of_vertices {
-        for i in 1..number_of_vertices {
+        for i in 1..=number_of_vertices{
             deg[i] = self_deg[i];
             comp[i] = self_comp[i];
         }
@@ -197,7 +208,7 @@ impl State {
 
 #[derive(Debug)]
 pub struct ZDD {
-    node_list_array: Vec<Vec<ZDDNode>>,
+    node_list_array: Vec<Vec<std::rc::Rc<ZDDNode>>>,
 }
 
 impl ZDD {
@@ -223,13 +234,33 @@ impl ZDD {
 }
 
 pub struct Frontier {
-    total_zddnode_id: std::cell::RefCell<usize>
+    total_zddnode_id: std::cell::RefCell<usize>,
+    zero_t: ZDDNode,
+    one_t: ZDDNode,
 }
 
 impl Frontier {
     pub fn new() -> Self{
+        let zero_t = ZDDNode {
+            deg: None,
+            comp: None,
+            sol: 0,
+            zero_child: None,
+            one_child: None,
+            id: 0,
+        };
+        let one_t = ZDDNode {
+            deg: None,
+            comp: None,
+            sol: 1,
+            zero_child: None,
+            one_child: None,
+            id: 1,
+        };
         Self {
             total_zddnode_id: std::cell::RefCell::new(1),
+            zero_t: zero_t,
+            one_t: one_t,
         }
     }
     fn get_zddnode_id(&self) -> usize {
@@ -247,6 +278,7 @@ impl Frontier {
             let mut n_i_1 = N[i + 1].clone();
             for j in 0..N[i].len() {
                 let n_hat = &mut N[i][j];
+
                 for x in 0..=1 {
                     let n_prime = self.check_terminal(n_hat, i, x, state);
                     let n_prime = match n_prime {
@@ -255,12 +287,14 @@ impl Frontier {
                                                               *self.total_zddnode_id.borrow());
                             self.update_info(&mut n_prime, i, x, state);
                             let n_primeprime = self.find(&n_prime, &n_i_1, i, state);
+                            println!("n_primeprime => {:?}", n_primeprime);
                             match n_primeprime {
                                 Some(v) => {n_prime = v;},
                                 None => {
                                     n_prime.set_next_id(self.get_zddnode_id());
                                     n_i_1.push(n_prime.clone());}
                             }
+
                             Some(n_prime)
                         },
                         Some(v) => Some(v),
@@ -277,23 +311,24 @@ impl Frontier {
         if x == 1 {
             let comp = n_hat.comp.as_ref().unwrap().borrow();
             if comp[edge.src] == comp[edge.dst] {
-                return Some(ZDDNode::ZERO_T);
+                return Some(self.zero_t.clone());
             }
         }
         let mut n_prime = n_hat.make_copy(state.graph.get_number_of_vertices(),
                                           *self.total_zddnode_id.borrow());
+        println!("n_prime => {:?}", n_prime);
         self.update_info(&mut n_prime, i, x, state);
+        println!("n_prime => {:?}", n_prime);
         let n_prime_deg = n_prime.deg.as_ref().unwrap().borrow();
-
         for y in 0..=1 {
             let u = match y {
                 0 => edge.src,
                 _ => edge.dst,
             };
             if (u == state.s || u == state.t) && n_prime_deg[u] > 1 {
-                return Some(ZDDNode::ZERO_T);
+                return Some(self.zero_t.clone());
             } else if  (u != state.s && u != state.t) && n_prime_deg[u] > 2 {
-                return Some(ZDDNode::ZERO_T);
+                return Some(self.zero_t.clone());
             }
         }
         for y in 0..=1 {
@@ -303,20 +338,30 @@ impl Frontier {
             };
             if !state.frontier[i].contains(&u) {
                 if (u == state.s || u == state.t) && n_prime_deg[u] != 1 {
-                    return Some(ZDDNode::ZERO_T);
+                    return Some(self.zero_t.clone());
                 } else if  (u != state.s && u != state.t) && n_prime_deg[u] != 0 && n_prime_deg[u] != 2 {
-                    return Some(ZDDNode::ZERO_T);
+                    if i == 4 {
+                        println!("{}, {}, {}", y, u, i);
+                        println!("{:?}", n_prime);
+                        println!("{:?}", (u != state.s && u != state.t));
+                        println!("{:?}", n_prime_deg[u] != 0);
+                        println!("{:?}", n_prime_deg[u] != 2);
+                        println!("{}, {}", i, n_hat);
+                    }
+                    return Some(self.zero_t.clone());
                 }
             }
         }
+        println!("{}, {}", i, state.graph.edge_list.len());
         if i == state.graph.edge_list.len() {
-            return Some(ZDDNode::ONE_T);
+            return Some(self.one_t.clone());
         }
         None
     }
 
     fn update_info(&self, n_hat: &mut ZDDNode, i: usize, x: usize, state: &State) {
         let edge = &state.graph.get_edge_list()[i - 1];
+        println!("{:?}", edge);
         let mut deg = n_hat.deg.as_ref().unwrap().borrow_mut();
         let mut comp = n_hat.comp.as_ref().unwrap().borrow_mut();
         for y in 0..=1 {
@@ -332,11 +377,11 @@ impl Frontier {
         if x == 1 {
             deg[edge.src] += 1;
             deg[edge.dst] += 1;
-            let (c_min, c_max) = {
+            let (c_max, c_min) = {
                 if comp[edge.src] > comp[edge.dst] {
-                    (comp[edge.dst], comp[edge.src])
-                } else {
                     (comp[edge.src], comp[edge.dst])
+                } else {
+                    (comp[edge.dst], comp[edge.src])
                 }
             };
             for j in 0..state.frontier[i].len() {

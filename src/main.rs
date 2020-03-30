@@ -13,6 +13,5 @@ fn main() {
     let mut zdd = frontier.construct(&state);
     println!("zdd number of nodes: {:?}", &zdd.get_number_of_nodes());
     println!("zdd number of solutions: {:?}", zdd.get_number_of_solutions());
-    println!("zdd = {:?}", zdd);
-    //println!("{:?}", zdd);
+    println!("{:?}", zdd);
 }
