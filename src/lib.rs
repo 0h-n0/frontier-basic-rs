@@ -79,13 +79,11 @@ trait ZDDNodeTrait {
 }
 
 impl ZDDNodeTrait for ZDDNode {
-
     fn create_root_node(number_of_vertices: usize, id: usize) -> Self {
-        let mut deg = vec![];
-        let mut comp = vec![];
+        let mut deg = vec![0; number_of_vertices + 1];
+        let mut comp = vec![0; number_of_vertices + 1];
         for i in 1..=number_of_vertices {
-            deg.push(0);
-            comp.push(i);
+            comp[i] = i;
         }
         ZDDNode {
             deg: Some(std::cell::RefCell::new(deg)),
@@ -103,15 +101,15 @@ impl ZDDNodeTrait for ZDDNode {
         self.id
     }
     fn make_copy(&self, number_of_vertices: usize, id: usize) -> Self {
-        let mut deg = vec![];
-        let mut comp = vec![];
+        let mut deg = vec![0; number_of_vertices + 1];
+        let mut comp = vec![0; number_of_vertices + 1];
 
         let self_deg = self.deg.as_ref().unwrap().borrow();
         let self_comp = self.comp.as_ref().unwrap().borrow();
         // for i in 1..=number_of_vertices {
         for i in 1..number_of_vertices {
-            deg.push(self_deg[i]);
-            comp.push(self_comp[i]);
+            deg[i] = self_deg[i];
+            comp[i] = self_comp[i];
         }
         ZDDNode {
             deg: Some(std::cell::RefCell::new(deg)),
@@ -174,14 +172,14 @@ impl State {
                 frontier[i + 1].push(dst)
             }
             if !State::find_element(graph.clone(), i, src) {
-                let mut v = frontier[i].clone().into_iter().filter(|&i| i != src).collect::<Vec<_>>();
-                frontier[i].truncate(0);
-                frontier[i].append(&mut v);
+                let mut v = frontier[i + 1].clone().into_iter().filter(|&i| i != src).collect::<Vec<_>>();
+                frontier[i + 1].truncate(0);
+                frontier[i + 1].append(&mut v);
             }
             if !State::find_element(graph.clone(), i, dst) {
-                let mut v = frontier[i].clone().into_iter().filter(|&i| i != dst).collect::<Vec<_>>();
-                frontier[i].truncate(0);
-                frontier[i].append(&mut v);
+                let mut v = frontier[i + 1].clone().into_iter().filter(|&i| i != dst).collect::<Vec<_>>();
+                frontier[i + 1].truncate(0);
+                frontier[i + 1].append(&mut v);
             }
         }
         frontier
@@ -244,6 +242,7 @@ impl Frontier {
         let mut N = vec![vec![]; edge_list.len() + 2];
         N[1].push(ZDDNode::create_root_node(state.graph.get_number_of_vertices(),
                                             self.get_zddnode_id()));
+
         for i in 1..=edge_list.len() {
             let mut n_i_1 = N[i + 1].clone();
             for j in 0..N[i].len() {
@@ -266,7 +265,6 @@ impl Frontier {
                         },
                         Some(v) => Some(v),
                     };
-                    println!("set_child: {:?}", n_prime);
                     n_hat.set_child(n_prime.unwrap(), x);
                 }
             }
@@ -276,7 +274,6 @@ impl Frontier {
     }
     fn check_terminal(&self, n_hat: &ZDDNode, i: usize, x: usize, state: &State) -> Option<ZDDNode> {
         let edge = &state.graph.get_edge_list()[i - 1];
-
         if x == 1 {
             let comp = n_hat.comp.as_ref().unwrap().borrow();
             if comp[edge.src] == comp[edge.dst] {
@@ -304,7 +301,7 @@ impl Frontier {
                 0 => edge.src,
                 _ => edge.dst,
             };
-            if !state.frontier[i - 1].contains(&u) {
+            if !state.frontier[i].contains(&u) {
                 if (u == state.s || u == state.t) && n_prime_deg[u] != 1 {
                     return Some(ZDDNode::ZERO_T);
                 } else if  (u != state.s && u != state.t) && n_prime_deg[u] != 0 && n_prime_deg[u] != 2 {
@@ -313,7 +310,7 @@ impl Frontier {
             }
         }
         if i == state.graph.edge_list.len() {
-            return Some(ZDDNode::ZERO_T);
+            return Some(ZDDNode::ONE_T);
         }
         None
     }
@@ -365,8 +362,8 @@ impl Frontier {
         let n1_comp = node1.comp.as_ref().unwrap().borrow();
         let n2_deg = node2.deg.as_ref().unwrap().borrow();
         let n2_comp = node2.comp.as_ref().unwrap().borrow();
-
         for j in 0..frontier.len() {
+
             let v = frontier[j];
             if n1_deg[v] != n2_deg[v] {
                 return false
