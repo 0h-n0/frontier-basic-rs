@@ -1,6 +1,5 @@
 // ref: https://github.com/junkawahara/frontier-basic
 // ref: https://users.rust-lang.org/t/is-rc-refcell-a-code-smell/27366
-
 use std::cell::RefCell;
 use std::rc::Rc;
 
@@ -31,7 +30,6 @@ impl Graph {
     }
     fn parse_adj_list_text(self) {
     }
-    #
     fn to_string(self) {
     }
 }
