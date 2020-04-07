@@ -46,7 +46,7 @@ struct TotalId {
 }
 
 #[derive(Default, Clone)]
-struct ZDDNode {
+pub struct ZDDNode {
     deg: Option<RefCell<Vec<usize>>>,
     comp: Option<RefCell<Vec<usize>>>,
     indeg: Option<RefCell<Vec<usize>>>,
@@ -228,6 +228,32 @@ pub struct ZDD {
 }
 
 impl ZDD {
+    pub fn get_zeronode() -> ZDDNode {
+        let zero_t = ZDDNode {
+            deg: None,
+            comp: None,
+            indeg: None,
+            outdeg: None,
+            sol: 0,
+            zero_child: None,
+            one_child: None,
+            id: 0,
+        };
+        zero_t
+    }
+    pub fn get_onenode() -> ZDDNode {
+        let one_t = ZDDNode {
+            deg: None,
+            comp: None,
+            indeg: None,
+            outdeg: None,
+            sol: 1,
+            zero_child: None,
+            one_child: None,
+            id: 1,
+        };
+        one_t
+    }
     pub fn get_number_of_nodes(&self) -> usize {
         let mut num = 0;
         for i in 1..self.node_list_array.len() {
