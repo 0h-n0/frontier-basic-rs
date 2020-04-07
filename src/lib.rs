@@ -49,6 +49,8 @@ struct TotalId {
 struct ZDDNode {
     deg: Option<RefCell<Vec<usize>>>,
     comp: Option<RefCell<Vec<usize>>>,
+    indeg: Option<RefCell<Vec<usize>>>,
+    outdeg: Option<RefCell<Vec<usize>>>,
     sol: i64,
     zero_child: Option<Rc<RefCell<ZDDNode>>>,
     one_child: Option<Rc<RefCell<ZDDNode>>>,
@@ -96,12 +98,16 @@ impl ZDDNodeTrait for ZDDNode {
     fn create_root_node(number_of_vertices: usize, id: usize) -> Self {
         let deg = vec![0; number_of_vertices + 1];
         let mut comp = vec![0; number_of_vertices + 1];
+        let indeg = vec![0; number_of_vertices + 1];
+        let outdeg = vec![0; number_of_vertices + 1];
         for i in 1..=number_of_vertices {
             comp[i] = i;
         }
         ZDDNode {
             deg: Some(RefCell::new(deg)),
             comp: Some(RefCell::new(comp)),
+            indeg: Some(RefCell::new(indeg)),
+            outdeg: Some(RefCell::new(outdeg)),
             sol: 0,
             zero_child: None,
             one_child: None,
@@ -117,15 +123,24 @@ impl ZDDNodeTrait for ZDDNode {
     fn make_copy(&self, number_of_vertices: usize, id: usize) -> Self {
         let mut deg = vec![0; number_of_vertices + 1];
         let mut comp = vec![0; number_of_vertices + 1];
+        let mut indeg = vec![0; number_of_vertices + 1];
+        let mut outdeg = vec![0; number_of_vertices + 1];
         let self_deg = self.deg.as_ref().unwrap().borrow();
         let self_comp = self.comp.as_ref().unwrap().borrow();
+        let self_indeg = self.indeg.as_ref().unwrap().borrow();
+        let self_outdeg = self.outdeg.as_ref().unwrap().borrow();
+
         for i in 1..=number_of_vertices{
             deg[i] = self_deg[i];
             comp[i] = self_comp[i];
+            indeg[i] = self_indeg[i];
+            outdeg[i] = self_outdeg[i];
         }
         ZDDNode {
             deg: Some(RefCell::new(deg)),
             comp: Some(RefCell::new(comp)),
+            indeg: Some(RefCell::new(indeg)),
+            outdeg: Some(RefCell::new(outdeg)),
             sol: 0,
             zero_child: None,
             one_child: None,
@@ -246,6 +261,8 @@ impl Frontier {
         let zero_t = ZDDNode {
             deg: None,
             comp: None,
+            indeg: None,
+            outdeg: None,
             sol: 0,
             zero_child: None,
             one_child: None,
@@ -254,6 +271,8 @@ impl Frontier {
         let one_t = ZDDNode {
             deg: None,
             comp: None,
+            indeg: None,
+            outdeg: None,
             sol: 1,
             zero_child: None,
             one_child: None,
@@ -316,6 +335,7 @@ impl Frontier {
         let edge = &state.graph.get_edge_list()[i - 1];
         let comp = n_hat.comp.as_ref().unwrap().borrow();
         if x == 1 {
+            // cycle
             if comp[edge.src] == comp[edge.dst] {
                 return Some(&self.zero_t);
             }
@@ -324,16 +344,26 @@ impl Frontier {
                                           *self.total_zddnode_id.borrow());
         self.update_info(&n_prime, i, x, state);
         let ref_deg = &n_prime.deg.unwrap().into_inner();
+        let ref_indeg = &n_prime.indeg.unwrap().into_inner();
+        let ref_outdeg = &n_prime.outdeg.unwrap().into_inner();
         for y in 0..=1 {
             let u = match y {
                 0 => edge.src,
                 _ => edge.dst,
             };
-            if (u == state.s || u == state.t) && ref_deg[u] > 1 {
+            if u == state.s && (ref_indeg[u] > 0 || ref_outdeg[u] > 1 ) {
                 return Some(&self.zero_t);
-            } else if  (u != state.s && u != state.t) && ref_deg[u] > 2 {
+            } else if u == state.t && (ref_indeg[u] > 1 || ref_outdeg[u] > 0 ) {
+                return Some(&self.zero_t);
+            } else if (u != state.s && u != state.t) && (ref_indeg[u] > 1 || ref_outdeg[u] > 1 ) {
                 return Some(&self.zero_t);
             }
+
+            // if (u == state.s || u == state.t) && ref_deg[u] > 1 {
+            //     return Some(&self.zero_t);
+            // } else if  (u != state.s && u != state.t) && ref_deg[u] > 2 {
+            //     return Some(&self.zero_t);
+            // }
         }
         for y in 0..=1 {
             let u = match y {
@@ -341,13 +371,18 @@ impl Frontier {
                 _ => edge.dst,
             };
             if !state.frontier[i].contains(&u) {
-                if (u == state.s || u == state.t) && ref_deg[u] != 1 {
+                if (u == state.s && ref_outdeg[u] != 1) || (u == state.t && ref_indeg[u] != 1) {
                     return Some(&self.zero_t);
-                } else if  (u != state.s && u != state.t)
-                    && ref_deg[u] != 0
-                    && ref_deg[u] != 2 {
+                } else if (u != state.s && u != state.t) && (ref_indeg[u] != ref_outdeg[u]) {
                     return Some(&self.zero_t);
                 }
+                // if (u == state.s || u == state.t) && ref_deg[u] != 1 {
+                //     return Some(&self.zero_t);
+                // } else if  (u != state.s && u != state.t)
+                //     && ref_deg[u] != 0
+                //     && ref_deg[u] != 2 {
+                //     return Some(&self.zero_t);
+                // }
             }
         }
         if i == state.graph.edge_list.len() {
@@ -359,6 +394,8 @@ impl Frontier {
     fn update_info(&self, n_hat: &ZDDNode, i: usize, x: usize, state: &State) {
         let edge = &state.graph.get_edge_list()[i - 1];
         let mut deg = n_hat.deg.as_ref().unwrap().borrow_mut();
+        let mut indeg = n_hat.indeg.as_ref().unwrap().borrow_mut();
+        let mut outdeg = n_hat.outdeg.as_ref().unwrap().borrow_mut();
         let mut comp = n_hat.comp.as_ref().unwrap().borrow_mut();
         for y in 0..=1 {
             let u = match y {
@@ -373,6 +410,8 @@ impl Frontier {
         if x == 1 {
             deg[edge.src] += 1;
             deg[edge.dst] += 1;
+            outdeg[edge.src] += 1;
+            indeg[edge.dst] += 1;
             let (c_max, c_min) = {
                 if comp[edge.src] > comp[edge.dst] {
                     (comp[edge.src], comp[edge.dst])
@@ -466,49 +505,5 @@ mod tests {
         let g = Graph::new(4, edge_list.clone());
         assert_eq!(g.get_number_of_vertices(), 4);
         assert_eq!(g.get_edge_list(), &edge_list);
-    }
-    #[test]
-    fn zddnode_get_id() {
-        let z1: ZDDNode = ZDDNode {
-            deg: None,
-            comp: None,
-            sol: 0,
-            zero_child: None,
-            one_child: None,
-            id: 0,
-        };
-        assert_eq!(z1.get_id(), 0);
-    }
-    #[test]
-    fn zddnode_get_child() {
-        let z1: ZDDNode = ZDDNode {
-            deg: None,
-            comp: None,
-            sol: 0,
-            zero_child: None,
-            one_child: None,
-            id: 0,
-        };
-        let z2: ZDDNode = ZDDNode {
-            deg: None,
-            comp: None,
-            sol: 0,
-            zero_child: None,
-            one_child: None,
-            id: 1,
-        };
-        let z3: ZDDNode = ZDDNode {
-            deg: None,
-            comp: None,
-            sol: 0,
-            zero_child: Some(std::rc::Rc::new(z1)),
-            one_child: Some(std::rc::Rc::new(z2)),
-            id: 2,
-        };
-        let zero = (&z3).get_child(0);
-        assert_eq!(zero.id, 0);
-        assert_eq!(zero.sol, 0);
-        assert_eq!(zero.id, 0);
-        assert_eq!(zero.sol, 0);
     }
 }
