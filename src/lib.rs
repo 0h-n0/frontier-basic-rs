@@ -237,15 +237,35 @@ impl ZDD {
     }
     pub fn get_number_of_solutions(&mut self) -> i64 {
         let mut i = self.node_list_array.len() - 1;
+        let mut max_id = 0;
         while i > 0 {
             for j in 0..self.node_list_array[i].len() {
                 let ij_node = self.node_list_array[i][j].clone();
                 let lo_node_sol = ij_node.borrow().get_child(0).clone().borrow().sol;
                 let hi_node_sol = ij_node.borrow().get_child(1).clone().borrow().sol;
                 self.node_list_array[i][j].borrow_mut().sol = lo_node_sol + hi_node_sol;
+                if ij_node.borrow().id > max_id {
+                    max_id = ij_node.borrow().id;
+                }
             }
             i -= 1;
         }
+        let mut i = self.node_list_array.len() - 1;
+        let mut solution_array = vec![0; max_id+1];
+        solution_array[0] = 0;
+        solution_array[1] = 1;
+        while i > 0 {
+            for j in 0..self.node_list_array[i].len() {
+                let ij_node = self.node_list_array[i][j].clone();
+                let lo_node_id = ij_node.borrow().get_child(0).clone().borrow().id;
+                let hi_node_id = ij_node.borrow().get_child(1).clone().borrow().id;
+                let id = ij_node.borrow().id;
+                println!("{:?}", ij_node);
+                solution_array[id] = solution_array[lo_node_id] + solution_array[hi_node_id];
+            }
+            i -= 1;
+        }
+        println!("{:?}", solution_array);
         self.node_list_array[1][0].borrow().sol
     }
 }
