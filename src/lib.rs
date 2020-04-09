@@ -344,14 +344,20 @@ impl ZDD {
                 _idx = _idx / 2;
                 println!("===> {:?}", _idx);
             }
+
             if is_hi {
-                for i in 0..level_first_array.len() - 1{
+                let mut is_break = false;
+                for i in 0..level_first_array.len() - 1 {
                     if level_first_array[i] <= current_node &&
                         current_node < level_first_array[i + 1] {
                             println!("{:?}", i + 1);
                             result.push(i + 1);
+                            is_break = true;
                             break;
-                        }
+                    }
+                }
+                if !is_break {
+                    result.push(level_first_array.len()-2);
                 }
                 current_node = node_array[current_node].borrow().get_child(1).clone().borrow().id;
             } else {
