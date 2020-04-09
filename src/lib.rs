@@ -342,11 +342,13 @@ impl ZDD {
                     is_hi = false;
                 }
                 _idx = _idx / 2;
+                println!("===> {:?}", _idx);
             }
             if is_hi {
                 for i in 0..level_first_array.len() - 1{
                     if level_first_array[i] <= current_node &&
                         current_node < level_first_array[i + 1] {
+                            println!("{:?}", i + 1);
                             result.push(i + 1);
                             break;
                         }
@@ -465,8 +467,10 @@ impl Frontier {
                 return Some(&self.zero_t);
             } else if state.t.contains(&u) && (ref_indeg[u] > 1 || ref_outdeg[u] > 0 ) {
                 return Some(&self.zero_t);
-            } else if (state.s.contains(&u) && state.t.contains(&u)) && (ref_indeg[u] > 1 || ref_outdeg[u] > 1 ) {
-                return Some(&self.zero_t);
+            }
+            else if (!state.s.contains(&u) && !state.t.contains(&u))
+                && (ref_indeg[u] == 0 && ref_outdeg[u] >= 1 ) {
+                 return Some(&self.zero_t);
             }
         }
         for y in 0..=1 {
@@ -477,8 +481,12 @@ impl Frontier {
             if !state.frontier[i].contains(&u) {
                 if (state.s.contains(&u) && ref_outdeg[u] != 1) || (state.t.contains(&u) && ref_indeg[u] != 1) {
                     return Some(&self.zero_t);
-                } else if (!state.s.contains(&u) && !state.t.contains(&u)) && (ref_indeg[u] != ref_outdeg[u]) {
-                    return Some(&self.zero_t);
+                } else if (!state.s.contains(&u) && !state.t.contains(&u)) {
+                    if (ref_indeg[u] == 0 && ref_outdeg[u] != 0) {
+                        return Some(&self.zero_t);
+                    } else if (ref_indeg[u] != 0 && ref_outdeg[u] == 0) {
+                        return Some(&self.zero_t);
+                    }
                 }
             }
         }
