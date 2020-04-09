@@ -167,13 +167,13 @@ impl ZDDNodeTrait for ZDDNode {
 
 pub struct State {
     graph: std::rc::Rc<Graph>,
-    s: usize,
-    t: usize,
+    s: Vec<usize>,
+    t: Vec<usize>,
     frontier: Vec<Vec<usize>>,
 }
 
 impl State {
-    pub fn new(graph: Graph, start: usize, end: usize) -> Self {
+    pub fn new(graph: Graph, start: Vec<usize>, end: Vec<usize>) -> Self {
         let graph = std::rc::Rc::new(graph);
         State {
             s: start,
@@ -461,19 +461,13 @@ impl Frontier {
                 0 => edge.src,
                 _ => edge.dst,
             };
-            if u == state.s && (ref_indeg[u] > 0 || ref_outdeg[u] > 1 ) {
+            if state.s.contains(&u) && (ref_indeg[u] > 0 || ref_outdeg[u] > 1 ) {
                 return Some(&self.zero_t);
-            } else if u == state.t && (ref_indeg[u] > 1 || ref_outdeg[u] > 0 ) {
+            } else if state.t.contains(&u) && (ref_indeg[u] > 1 || ref_outdeg[u] > 0 ) {
                 return Some(&self.zero_t);
-            } else if (u != state.s && u != state.t) && (ref_indeg[u] > 1 || ref_outdeg[u] > 1 ) {
+            } else if (state.s.contains(&u) && state.t.contains(&u)) && (ref_indeg[u] > 1 || ref_outdeg[u] > 1 ) {
                 return Some(&self.zero_t);
             }
-
-            // if (u == state.s || u == state.t) && ref_deg[u] > 1 {
-            //     return Some(&self.zero_t);
-            // } else if  (u != state.s && u != state.t) && ref_deg[u] > 2 {
-            //     return Some(&self.zero_t);
-            // }
         }
         for y in 0..=1 {
             let u = match y {
@@ -481,18 +475,11 @@ impl Frontier {
                 _ => edge.dst,
             };
             if !state.frontier[i].contains(&u) {
-                if (u == state.s && ref_outdeg[u] != 1) || (u == state.t && ref_indeg[u] != 1) {
+                if (state.s.contains(&u) && ref_outdeg[u] != 1) || (state.t.contains(&u) && ref_indeg[u] != 1) {
                     return Some(&self.zero_t);
-                } else if (u != state.s && u != state.t) && (ref_indeg[u] != ref_outdeg[u]) {
+                } else if (!state.s.contains(&u) && !state.t.contains(&u)) && (ref_indeg[u] != ref_outdeg[u]) {
                     return Some(&self.zero_t);
                 }
-                // if (u == state.s || u == state.t) && ref_deg[u] != 1 {
-                //     return Some(&self.zero_t);
-                // } else if  (u != state.s && u != state.t)
-                //     && ref_deg[u] != 0
-                //     && ref_deg[u] != 2 {
-                //     return Some(&self.zero_t);
-                // }
             }
         }
         if i == state.graph.edge_list.len() {
