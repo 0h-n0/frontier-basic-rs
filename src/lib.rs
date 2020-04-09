@@ -345,9 +345,14 @@ impl ZDD {
             }
             if is_hi {
                 for i in 0..level_first_array.len() - 1{
+
                     if level_first_array[i] <= current_node &&
-                        current_node < level_first_array[i + 1] {
-                            result.push(i + 1);
+                        current_node <= level_first_array[i + 1] {
+                            if i == level_first_array.len() - 4 {
+                                result.push(i + 2);
+                            } else {
+                                result.push(i + 1);
+                            }
                             break;
                         }
                 }
