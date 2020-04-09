@@ -342,7 +342,6 @@ impl ZDD {
                     is_hi = false;
                 }
                 _idx = _idx / 2;
-                println!("===> {:?}", _idx);
             }
 
             if is_hi {
@@ -350,7 +349,6 @@ impl ZDD {
                 for i in 0..level_first_array.len() - 1 {
                     if level_first_array[i] <= current_node &&
                         current_node < level_first_array[i + 1] {
-                            println!("{:?}", i + 1);
                             result.push(i + 1);
                             is_break = true;
                             break;
