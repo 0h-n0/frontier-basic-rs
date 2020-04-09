@@ -2,6 +2,8 @@
 // ref: https://users.rust-lang.org/t/is-rc-refcell-a-code-smell/27366
 use std::cell::RefCell;
 use std::rc::Rc;
+use std::collections::VecDeque;
+use rand::Rng;
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct Edge {
@@ -270,29 +272,91 @@ impl ZDD {
                 let lo_node_sol = ij_node.borrow().get_child(0).clone().borrow().sol;
                 let hi_node_sol = ij_node.borrow().get_child(1).clone().borrow().sol;
                 self.node_list_array[i][j].borrow_mut().sol = lo_node_sol + hi_node_sol;
+            }
+            i -= 1;
+        }
+        self.node_list_array[1][0].borrow().sol
+    }
+    pub fn get_sample(&mut self, idx: usize) -> Result<Vec<usize>, String> {
+        let mut i = self.node_list_array.len() - 1;
+        let mut max_id = 0;
+        while i > 0 {
+            for j in 0..self.node_list_array[i].len() {
+                let ij_node = self.node_list_array[i][j].clone();
+                let lo_node_sol = ij_node.borrow().get_child(0).clone().borrow().sol;
+                let hi_node_sol = ij_node.borrow().get_child(1).clone().borrow().sol;
+                self.node_list_array[i][j].borrow_mut().sol = lo_node_sol + hi_node_sol;
                 if ij_node.borrow().id > max_id {
                     max_id = ij_node.borrow().id;
                 }
             }
             i -= 1;
         }
+        if idx as i64 >= self.node_list_array[1][0].borrow().sol {
+            return Err(format!("id[{:?}x > number_solution[{:?}]", idx, self.node_list_array[1][0].borrow().sol));
+        }
         let mut i = self.node_list_array.len() - 1;
         let mut solution_array = vec![0; max_id+1];
+        let zero_node = Rc::new(RefCell::new(ZDD::get_zeronode()));
+        let one_node = Rc::new(RefCell::new(ZDD::get_onenode()));
+        let mut node_array: Vec<Rc<RefCell<ZDDNode>>> = vec![zero_node.clone(); max_id+1];
         solution_array[0] = 0;
         solution_array[1] = 1;
+        node_array[1] = one_node;
+        let mut level_first_array = VecDeque::new();
         while i > 0 {
             for j in 0..self.node_list_array[i].len() {
                 let ij_node = self.node_list_array[i][j].clone();
                 let lo_node_id = ij_node.borrow().get_child(0).clone().borrow().id;
                 let hi_node_id = ij_node.borrow().get_child(1).clone().borrow().id;
                 let id = ij_node.borrow().id;
-                println!("{:?}", ij_node);
+                node_array[id] = ij_node;
                 solution_array[id] = solution_array[lo_node_id] + solution_array[hi_node_id];
+                if j == 0 {
+                    level_first_array.push_front(id);
+                }
             }
             i -= 1;
         }
-        println!("{:?}", solution_array);
-        self.node_list_array[1][0].borrow().sol
+        level_first_array.push_back(8);
+        level_first_array.push_back(8);
+        let mut current_node = 2;
+        let mut rng = rand::thread_rng();
+        let mut result = vec![];
+        let mut _idx = idx + 1;
+        while (current_node >= 2) {
+            let mut is_hi = false;
+            let lo_id = node_array[current_node].borrow().get_child(0).clone().borrow().id;
+            let hi_id = node_array[current_node].borrow().get_child(1).clone().borrow().id;
+            let lo = solution_array[lo_id];
+            let hi = solution_array[hi_id];
+
+            if lo == 0 {
+                is_hi = true;
+            } else if hi == 0 {
+                is_hi = false;
+            } else {
+                if _idx % 2 == 0 {
+                    is_hi = true;
+                } else {
+                    is_hi = false;
+                }
+                _idx = _idx / 2;
+            }
+            if is_hi {
+                for i in 0..level_first_array.len() - 1{
+                    if level_first_array[i] <= current_node &&
+                        current_node < level_first_array[i + 1] {
+                            result.push(i + 1);
+                            break;
+                        }
+                }
+                current_node = node_array[current_node].borrow().get_child(1).clone().borrow().id;
+            } else {
+                current_node = node_array[current_node].borrow().get_child(0).clone().borrow().id;
+            }
+        }
+        Ok(result)
     }
 }
 
